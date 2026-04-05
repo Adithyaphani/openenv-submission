@@ -1,0 +1,15 @@
+name: email-triage-env
+version: "1.0.0"
+description: >
+  An RL environment where an AI agent triages customer support emails
+  by classifying priority, category, and drafting responses.
+tasks:
+  - name: easy
+    description: "Classify email priority only: urgent, normal, or low"
+    max_steps: 1
+  - name: medium
+    description: "Classify email priority AND category (billing/technical/general/spam)"
+    max_steps: 1
+  - name: hard
+    description: "Full triage: priority + category + professional draft response"
+    max_steps: 1

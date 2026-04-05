@@ -1,0 +1,13 @@
+name: email-triage-env
+version: "1.0.0"
+description: "Email triage environment for customer support agents"
+tasks:
+  - name: easy
+    description: "Classify email priority only: urgent, normal, or low"
+    max_steps: 1
+  - name: medium
+    description: "Classify email priority AND category"
+    max_steps: 1
+  - name: hard
+    description: "Full triage: priority, category and draft response"
+    max_steps: 1
