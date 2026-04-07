@@ -20,7 +20,7 @@ SYSTEM_PROMPT = textwrap.dedent("""
     Given an email respond ONLY with a valid JSON object with exactly these fields:
     {"priority": "urgent" or "normal" or "low", "category": "billing" or "technical" or "general" or "spam", "response": "your professional reply here"}
     No extra text. No markdown. No code blocks. Only raw JSON.
-"""^).strip^(^)
+""").strip()
 
 
 def log_start(task, env, model):
@@ -35,7 +35,7 @@ def log_step(step, action, reward, done, error):
 
 def log_end(success, steps, score, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str^(success^).lower^(^)} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
 
 
 def call_env(endpoint, method="POST", body=None):
@@ -68,7 +68,7 @@ def get_action(client, obs):
         Email Body: {obs.get('email_body', 'No body')}
         Task: {obs.get('message', 'Triage this email')}
         Respond with JSON only.
-    """^).strip^(^)
+    """).strip()
     try:
         completion = client.chat.completions.create(
             model=MODEL_NAME,
