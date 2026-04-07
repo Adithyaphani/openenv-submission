@@ -1,9 +1,9 @@
 import sys
 import random
 import uuid
-import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+import subprocess
 
 app = FastAPI()
 
@@ -32,7 +32,7 @@ EMAILS = [
 
 DEFAULT_EMAIL = {"subject": "General inquiry", "body": "I have a question about your service.", "sender": "unknown@example.com", "true_priority": "normal", "true_category": "general"}
 
-state = {"email": DEFAULT_EMAIL, "task": "easy", "episode_id": str(uuid.uuid4()), "steps": 0}
+state = {"email": DEFAULT_EMAIL, "task": "easy", "episode_id": "", "steps": 0}
 
 
 @app.get("/health")
@@ -137,7 +137,7 @@ def get_state():
 
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    subprocess.run(["python", "-m", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"])
 
 
 if __name__ == "__main__":
