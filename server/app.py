@@ -30,9 +30,24 @@ EMAILS = [
     {"subject": "Cancel my subscription", "body": "I would like to cancel my subscription immediately and stop all future billing.", "sender": "leaving@customer.com", "true_priority": "normal", "true_category": "billing"},
 ]
 
-DEFAULT_EMAIL = {"subject": "General inquiry", "body": "I have a question about your service.", "sender": "unknown@example.com", "true_priority": "normal", "true_category": "general"}
+DEFAULT_EMAIL = {
+    "subject": "General inquiry",
+    "body": "I have a question about your service.",
+    "sender": "unknown@example.com",
+    "true_priority": "normal",
+    "true_category": "general"
+}
 
-state = {"email": DEFAULT_EMAIL, "task": "easy", "episode_id": "", "steps": 0}
+state = {
+    "email": DEFAULT_EMAIL,
+    "task": "easy",
+    "episode_id": "",
+    "steps": 0
+}
+
+
+def clamp(reward):
+    return round(max(0.01, min(0.99, float(reward))), 4)
 
 
 @app.get("/health")
@@ -46,13 +61,16 @@ async def reset(request: Request):
         body = await request.json()
     except Exception:
         body = {}
+
     try:
         state["task"] = body.get("task", "easy") if body else "easy"
         if state["task"] not in ["easy", "medium", "hard"]:
             state["task"] = "easy"
+
         state["email"] = random.choice(EMAILS)
         state["episode_id"] = str(uuid.uuid4())
         state["steps"] = 0
+
         return JSONResponse({
             "observation": {
                 "email_subject": state["email"]["subject"],
@@ -76,40 +94,57 @@ async def do_step(request: Request):
         body = await request.json()
     except Exception:
         body = {}
+
     try:
         if not body:
             body = {}
+
         if not state["email"]:
             state["email"] = random.choice(EMAILS)
+
         state["steps"] += 1
+
         priority = str(body.get("priority", "normal"))
         category = str(body.get("category", "general"))
         response = str(body.get("response", ""))
+
         email = state["email"]
         task = state["task"]
+
         if task == "easy":
             priority_list = ["urgent", "normal", "low"]
             if priority == email["true_priority"]:
-                reward = 1.0
-            elif priority in priority_list and email["true_priority"] in priority_list and abs(priority_list.index(priority) - priority_list.index(email["true_priority"])) == 1:
-                reward = 0.4
+                raw = 0.95
+            elif (
+                priority in priority_list and
+                email["true_priority"] in priority_list and
+                abs(priority_list.index(priority) - priority_list.index(email["true_priority"])) == 1
+            ):
+                raw = 0.45
             else:
-                reward = 0.0
+                raw = 0.05
+
         elif task == "medium":
-            p = 1.0 if priority == email["true_priority"] else 0.0
-            c = 1.0 if category == email["true_category"] else 0.0
-            reward = round((p * 0.5) + (c * 0.5), 2)
+            p = 0.95 if priority == email["true_priority"] else 0.05
+            c = 0.95 if category == email["true_category"] else 0.05
+            raw = (p * 0.5) + (c * 0.5)
+
         else:
-            p = 1.0 if priority == email["true_priority"] else 0.0
-            c = 1.0 if category == email["true_category"] else 0.0
+            p = 0.95 if priority == email["true_priority"] else 0.05
+            c = 0.95 if category == email["true_category"] else 0.05
+
             r = 0.0
             if len(response.strip()) >= 30:
                 r += 0.4
             if any(k in response.lower() for k in ["thank", "help", "resolve", "assist", "support", "sorry", "understand"]):
-                r += 0.3
+                r += 0.35
             if response and response[0].isupper() and response.strip()[-1] in ".!?":
-                r += 0.3
-            reward = round((p * 0.3) + (c * 0.3) + (min(r, 1.0) * 0.4), 2)
+                r += 0.25
+
+            raw = (p * 0.3) + (c * 0.3) + (min(r, 0.95) * 0.4)
+
+        reward = clamp(raw)
+
         return JSONResponse({
             "observation": {
                 "email_subject": email["subject"],
@@ -124,20 +159,36 @@ async def do_step(request: Request):
             "done": True,
             "info": {}
         })
+
     except Exception as e:
-        return JSONResponse({"observation": {}, "reward": 0.0, "done": True, "info": {"error": str(e)}}, status_code=200)
+        return JSONResponse({
+            "observation": {},
+            "reward": 0.05,
+            "done": True,
+            "info": {"error": str(e)}
+        }, status_code=200)
 
 
 @app.get("/state")
 def get_state():
     try:
-        return JSONResponse({"state": {"episode_id": state["episode_id"], "step_count": state["steps"], "task_name": state["task"]}})
+        return JSONResponse({
+            "state": {
+                "episode_id": state["episode_id"],
+                "step_count": state["steps"],
+                "task_name": state["task"]
+            }
+        })
     except Exception as e:
         return JSONResponse({"state": {}, "error": str(e)})
 
 
 def main():
-    subprocess.run(["python", "-m", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"])
+    subprocess.run([
+        "python", "-m", "uvicorn", "server.app:app",
+        "--host", "0.0.0.0",
+        "--port", "7860"
+    ])
 
 
 if __name__ == "__main__":
