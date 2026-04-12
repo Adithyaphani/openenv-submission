@@ -4,96 +4,97 @@ import subprocess
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Email Triage Environment", version="1.0.0")
+app = FastAPI()
 
-PRIORITY_LIST = ["urgent", "normal", "low"]
-CATEGORY_LIST = ["billing", "technical", "general", "spam"]
+PL = ["urgent", "normal", "low"]
+CL = ["billing", "technical", "general", "spam"]
+LO = 0.15
+HI = 0.85
 
 EMAILS = [
-    {"subject": "Payment failed 3 times", "body": "My payment has been declined three times. I need this resolved immediately.", "sender": "angry@example.com", "true_priority": "urgent", "true_category": "billing"},
-    {"subject": "Cannot login to account", "body": "I have been trying to login for 2 hours. Password reset emails are not arriving.", "sender": "user123@example.com", "true_priority": "urgent", "true_category": "technical"},
-    {"subject": "Question about pricing", "body": "Hi, I wanted to know about your premium plan pricing and features included.", "sender": "prospect@example.com", "true_priority": "normal", "true_category": "general"},
-    {"subject": "Invoice discrepancy", "body": "I was charged 150 dollars but my plan is 99 dollars. Please refund the difference.", "sender": "client@business.com", "true_priority": "urgent", "true_category": "billing"},
-    {"subject": "Feature request dark mode", "body": "It would be great if you could add dark mode to the dashboard.", "sender": "happyuser@example.com", "true_priority": "low", "true_category": "general"},
-    {"subject": "API returning 500 errors", "body": "Your API keeps returning 500 errors. Our production app is completely down.", "sender": "dev@startup.com", "true_priority": "urgent", "true_category": "technical"},
-    {"subject": "You have won a prize", "body": "Click here to claim your prize. You have been selected as our lucky winner.", "sender": "spam@suspicious.net", "true_priority": "low", "true_category": "spam"},
-    {"subject": "Subscription renewal", "body": "Your subscription renews in 7 days. No action needed if you wish to continue.", "sender": "billing@service.com", "true_priority": "normal", "true_category": "billing"},
-    {"subject": "How to export data", "body": "I cannot find how to export my data to CSV format in the documentation.", "sender": "user@company.com", "true_priority": "normal", "true_category": "technical"},
-    {"subject": "Thank you for great service", "body": "Your support team has been incredibly helpful this week. Keep up the great work!", "sender": "fan@example.com", "true_priority": "low", "true_category": "general"},
-    {"subject": "Account hacked urgent", "body": "Someone accessed my account without permission and changed my email. Lock it now.", "sender": "victim@email.com", "true_priority": "urgent", "true_category": "technical"},
-    {"subject": "Double charged this month", "body": "I have been charged twice for my monthly subscription. Please refund the duplicate.", "sender": "customer@gmail.com", "true_priority": "urgent", "true_category": "billing"},
-    {"subject": "Slack integration broken", "body": "The Slack integration stopped working after your update yesterday.", "sender": "ops@techcorp.com", "true_priority": "normal", "true_category": "technical"},
-    {"subject": "Bulk discount request", "body": "We are upgrading 50 seats to enterprise. Can you offer a volume discount?", "sender": "procurement@bigcorp.com", "true_priority": "normal", "true_category": "billing"},
-    {"subject": "App crashes on iOS", "body": "Since updating to iOS 17 your mobile app crashes every time I open it.", "sender": "iphone@user.com", "true_priority": "urgent", "true_category": "technical"},
-    {"subject": "Free crypto investment", "body": "Invest 100 dollars today and earn 10000 dollars guaranteed. Click now.", "sender": "invest@scam.io", "true_priority": "low", "true_category": "spam"},
-    {"subject": "Service completely down", "body": "Your entire service is down. None of our 200 employees can access the platform.", "sender": "emergency@enterprise.com", "true_priority": "urgent", "true_category": "technical"},
-    {"subject": "Wrong plan activated", "body": "I signed up for basic plan but was activated on premium and charged more.", "sender": "newuser@email.com", "true_priority": "urgent", "true_category": "billing"},
-    {"subject": "Dashboard loading slowly", "body": "For 3 days the dashboard has been very slow. It takes over 30 seconds to load.", "sender": "power@user.com", "true_priority": "normal", "true_category": "technical"},
-    {"subject": "Cancel subscription", "body": "I would like to cancel my subscription immediately. Stop all future billing.", "sender": "leaving@customer.com", "true_priority": "normal", "true_category": "billing"},
+    {"subject": "Payment failed", "body": "My payment declined 3 times. Resolve immediately.", "sender": "a@b.com", "true_priority": "urgent", "true_category": "billing"},
+    {"subject": "Cannot login", "body": "Cannot login for 2 hours. Password reset not working.", "sender": "b@c.com", "true_priority": "urgent", "true_category": "technical"},
+    {"subject": "Pricing question", "body": "What is the premium plan pricing and features?", "sender": "c@d.com", "true_priority": "normal", "true_category": "general"},
+    {"subject": "Invoice wrong", "body": "Charged 150 but plan is 99. Please refund.", "sender": "d@e.com", "true_priority": "urgent", "true_category": "billing"},
+    {"subject": "Dark mode request", "body": "Please add dark mode to the dashboard.", "sender": "e@f.com", "true_priority": "low", "true_category": "general"},
+    {"subject": "API 500 errors", "body": "API returning 500 errors. Production is down.", "sender": "f@g.com", "true_priority": "urgent", "true_category": "technical"},
+    {"subject": "You won a prize", "body": "Click here to claim your prize now.", "sender": "g@h.com", "true_priority": "low", "true_category": "spam"},
+    {"subject": "Renewal reminder", "body": "Your subscription renews in 7 days.", "sender": "h@i.com", "true_priority": "normal", "true_category": "billing"},
+    {"subject": "Export data help", "body": "Cannot find how to export data to CSV.", "sender": "i@j.com", "true_priority": "normal", "true_category": "technical"},
+    {"subject": "Great service thanks", "body": "Your support team has been very helpful.", "sender": "j@k.com", "true_priority": "low", "true_category": "general"},
+    {"subject": "Account hacked", "body": "Someone changed my account email. Lock it now.", "sender": "k@l.com", "true_priority": "urgent", "true_category": "technical"},
+    {"subject": "Double charged", "body": "Charged twice this month. Refund the duplicate.", "sender": "l@m.com", "true_priority": "urgent", "true_category": "billing"},
+    {"subject": "Slack broken", "body": "Slack integration stopped after your update.", "sender": "m@n.com", "true_priority": "normal", "true_category": "technical"},
+    {"subject": "Bulk discount", "body": "Upgrading 50 seats. Can you offer a discount?", "sender": "n@o.com", "true_priority": "normal", "true_category": "billing"},
+    {"subject": "App crashes iOS", "body": "App crashes every time since iOS 17 update.", "sender": "o@p.com", "true_priority": "urgent", "true_category": "technical"},
+    {"subject": "Crypto investment", "body": "Invest 100 dollars earn 10000 guaranteed.", "sender": "p@q.com", "true_priority": "low", "true_category": "spam"},
+    {"subject": "Service down", "body": "200 employees cannot access the platform.", "sender": "q@r.com", "true_priority": "urgent", "true_category": "technical"},
+    {"subject": "Wrong plan", "body": "Activated on premium instead of basic.", "sender": "r@s.com", "true_priority": "urgent", "true_category": "billing"},
+    {"subject": "Slow dashboard", "body": "Dashboard takes 30 seconds to load for 3 days.", "sender": "s@t.com", "true_priority": "normal", "true_category": "technical"},
+    {"subject": "Cancel subscription", "body": "Cancel my subscription and stop all billing.", "sender": "t@u.com", "true_priority": "normal", "true_category": "billing"},
 ]
 
-DEFAULT_EMAIL = {"subject": "General inquiry", "body": "I have a question.", "sender": "user@example.com", "true_priority": "normal", "true_category": "general"}
-STATE = {"email": DEFAULT_EMAIL, "task": "easy", "episode_id": str(uuid.uuid4()), "steps": 0}
-
-MIN_REWARD = 0.05
-MAX_REWARD = 0.95
+DEF = {"subject": "Inquiry", "body": "Question.", "sender": "x@y.com", "true_priority": "normal", "true_category": "general"}
+ST = {"email": DEF, "task": "easy", "episode_id": str(uuid.uuid4()), "steps": 0}
 
 
-def safe_reward(value):
+def sr(v):
     try:
-        v = float(value)
+        f = float(v)
     except Exception:
-        v = MIN_REWARD
-    if v <= 0.0 or v >= 1.0:
-        v = MIN_REWARD
-    return round(max(MIN_REWARD, min(MAX_REWARD, v)), 4)
+        return LO
+    if f <= 0.0 or f >= 1.0:
+        return LO
+    r = max(LO, min(HI, round(f, 4)))
+    if r <= 0.0 or r >= 1.0:
+        return LO
+    return r
 
 
 def grade(email, task, priority, category, response):
     try:
-        if priority not in PRIORITY_LIST:
+        if priority not in PL:
             priority = "normal"
-        if category not in CATEGORY_LIST:
+        if category not in CL:
             category = "general"
-
+        if not isinstance(response, str):
+            response = ""
+        tp = PL.index(email.get("true_priority", "normal"))
+        ap = PL.index(priority)
+        tc = email.get("true_category", "general")
         if task == "easy":
-            tp = PRIORITY_LIST.index(email["true_priority"])
-            ap = PRIORITY_LIST.index(priority)
-            if priority == email["true_priority"]:
-                score = 0.90
+            if priority == email.get("true_priority"):
+                raw = 0.85
             elif abs(tp - ap) == 1:
-                score = 0.55
+                raw = 0.50
             else:
-                score = MIN_REWARD
-
+                raw = LO
         elif task == "medium":
-            p = 0.90 if priority == email["true_priority"] else MIN_REWARD
-            c = 0.90 if category == email["true_category"] else MIN_REWARD
-            score = (p * 0.5) + (c * 0.5)
-
-        else:
-            p = 0.90 if priority == email["true_priority"] else MIN_REWARD
-            c = 0.90 if category == email["true_category"] else MIN_REWARD
+            p = 0.85 if priority == email.get("true_priority") else LO
+            c = 0.85 if category == tc else LO
+            raw = (p * 0.5) + (c * 0.5)
+        elif task == "hard":
+            p = 0.85 if priority == email.get("true_priority") else LO
+            c = 0.85 if category == tc else LO
             r = 0.0
             if len(response) >= 30:
-                r = r + 0.40
-            keywords = ["thank", "help", "resolve", "assist", "support", "sorry", "understand"]
-            if any(k in response.lower() for k in keywords):
-                r = r + 0.35
+                r += 0.35
+            if any(k in response.lower() for k in ["thank", "help", "resolve", "support", "sorry"]):
+                r += 0.30
             if len(response) > 0 and response[0].isupper() and response[-1] in ".!?":
-                r = r + 0.25
-            r = min(r, 0.90)
-            score = (p * 0.30) + (c * 0.30) + (r * 0.40)
-
-        return safe_reward(score)
-
+                r += 0.20
+            r = min(r, 0.80)
+            raw = (p * 0.30) + (c * 0.30) + (r * 0.40)
+        else:
+            raw = LO
+        return sr(raw)
     except Exception:
-        return MIN_REWARD
+        return LO
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "email-triage-env"}
+    return {"status": "ok"}
 
 
 @app.post("/reset")
@@ -104,19 +105,19 @@ async def reset(request: Request):
         body = {}
     try:
         task = body.get("task", "easy") if body else "easy"
-        STATE["task"]       = task if task in ["easy", "medium", "hard"] else "easy"
-        STATE["email"]      = random.choice(EMAILS)
-        STATE["episode_id"] = str(uuid.uuid4())
-        STATE["steps"]      = 0
+        ST["task"] = task if task in ["easy", "medium", "hard"] else "easy"
+        ST["email"] = random.choice(EMAILS)
+        ST["episode_id"] = str(uuid.uuid4())
+        ST["steps"] = 0
         return JSONResponse({
             "observation": {
-                "email_subject": STATE["email"]["subject"],
-                "email_body":    STATE["email"]["body"],
-                "email_sender":  STATE["email"]["sender"],
-                "task_name":     STATE["task"],
-                "message":       "Triage this email. Task: " + STATE["task"],
-                "done":          False,
-                "reward":        None
+                "email_subject": ST["email"]["subject"],
+                "email_body": ST["email"]["body"],
+                "email_sender": ST["email"]["sender"],
+                "task_name": ST["task"],
+                "message": "Triage this email. Task: " + ST["task"],
+                "done": False,
+                "reward": None
             },
             "done": False,
             "info": {}
@@ -132,46 +133,41 @@ async def step(request: Request):
     except Exception:
         body = {}
     try:
-        body     = body or {}
-        email    = STATE.get("email") or DEFAULT_EMAIL
-        task     = STATE.get("task", "easy")
+        body = body or {}
+        email = ST.get("email") or DEF
+        task = ST.get("task", "easy")
         priority = str(body.get("priority", "normal")).lower().strip()
         category = str(body.get("category", "general")).lower().strip()
         response = str(body.get("response", "")).strip()
-        STATE["steps"] = STATE.get("steps", 0) + 1
-
+        ST["steps"] = ST.get("steps", 0) + 1
         reward = grade(email, task, priority, category, response)
-
+        if reward <= 0.0 or reward >= 1.0:
+            reward = LO
         return JSONResponse({
             "observation": {
-                "email_subject": email["subject"],
-                "email_body":    email["body"],
-                "email_sender":  email["sender"],
-                "task_name":     task,
-                "message":       "Scored: " + str(reward),
-                "done":          True,
-                "reward":        reward
+                "email_subject": email.get("subject", ""),
+                "email_body": email.get("body", ""),
+                "email_sender": email.get("sender", ""),
+                "task_name": task,
+                "message": "Score: " + str(reward),
+                "done": True,
+                "reward": reward
             },
             "reward": reward,
-            "done":   True,
-            "info":   {}
+            "done": True,
+            "info": {}
         })
     except Exception as e:
-        return JSONResponse({
-            "observation": {},
-            "reward": MIN_REWARD,
-            "done":   True,
-            "info":   {"error": str(e)}
-        }, status_code=200)
+        return JSONResponse({"observation": {}, "reward": LO, "done": True, "info": {"error": str(e)}}, status_code=200)
 
 
 @app.get("/state")
 def state():
     try:
         return JSONResponse({"state": {
-            "episode_id": STATE.get("episode_id", ""),
-            "step_count": STATE.get("steps", 0),
-            "task_name":  STATE.get("task", "easy")
+            "episode_id": ST.get("episode_id", ""),
+            "step_count": ST.get("steps", 0),
+            "task_name": ST.get("task", "easy")
         }})
     except Exception as e:
         return JSONResponse({"state": {}, "error": str(e)})
